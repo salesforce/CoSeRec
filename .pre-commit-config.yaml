@@ -9,4 +9,4 @@ repos:
   hooks:
     - id: licenseheaders
       args: ["-t", ".copyright.tmpl", "-cy", "-o", "salesforce.com, inc.",
-             "-E", ".py", "-x", "docs/source/conf.py", "-f"]
+             "-E", ".py", "-f"]
