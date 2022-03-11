@@ -15,7 +15,9 @@ Cite following one or both if you use them:
   year={2016}
 }
 ```
+
 and
+
 ```
 @inproceedings{mcauley2015image,
   title={Image-based recommendations on styles and substitutes},
