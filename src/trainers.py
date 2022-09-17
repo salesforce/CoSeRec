@@ -19,9 +19,11 @@ from datasets import RecWithContrastiveLearningDataset
 from modules import NCELoss, NTXent
 from utils import recall_at_k, ndcg_k, get_metric, get_user_seqs, nCr
 
-
 class Trainer:
-    def __init__(self, model, train_dataloader, eval_dataloader, test_dataloader, args):
+    def __init__(self, model, train_dataloader,
+                 eval_dataloader,
+                 test_dataloader, 
+                 args):
 
         self.args = args
         self.cuda_condition = torch.cuda.is_available() and not self.args.no_cuda
@@ -31,13 +33,10 @@ class Trainer:
         self.online_similarity_model = args.online_similarity_model
 
         self.total_augmentaion_pairs = nCr(self.args.n_views, 2)
-        # projection head for contrastive learn task
-        self.projection = nn.Sequential(
-            nn.Linear(self.args.max_seq_length * self.args.hidden_size, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, self.args.hidden_size, bias=True),
-        )
+        #projection head for contrastive learn task
+        self.projection = nn.Sequential(nn.Linear(self.args.max_seq_length*self.args.hidden_size, \
+                                        512, bias=False), nn.BatchNorm1d(512), nn.ReLU(inplace=True), 
+                                        nn.Linear(512, self.args.hidden_size, bias=True))
         if self.cuda_condition:
             self.model.cuda()
             self.projection.cuda()
@@ -55,7 +54,7 @@ class Trainer:
         self.cf_criterion = NCELoss(self.args.temperature, self.device)
         # self.cf_criterion = NTXent()
         print("self.cf_criterion:", self.cf_criterion.__class__.__name__)
-
+        
     def __refresh_training_dataset(self, item_embeddings):
         """
         use for updating item embedding
@@ -63,13 +62,12 @@ class Trainer:
         user_seq, _, _, _ = get_user_seqs(self.args.data_file)
         self.args.online_similarity_model.update_embedding_matrix(item_embeddings)
         # training data for node classification
-        train_dataset = RecWithContrastiveLearningDataset(
-            self.args, user_seq, data_type="train", similarity_model_type="hybrid"
-        )
+        train_dataset = RecWithContrastiveLearningDataset(self.args, user_seq, 
+                                        data_type='train', similarity_model_type='hybrid')
         train_sampler = RandomSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=self.args.batch_size)
         return train_dataloader
-
+        
     def train(self, epoch):
         # start to use online item similarity
         if epoch > self.args.augmentation_warm_up_epoches:
@@ -93,17 +91,14 @@ class Trainer:
         HIT_10, NDCG_10, MRR = get_metric(pred_list, 10)
         post_fix = {
             "Epoch": epoch,
-            "HIT@1": "{:.4f}".format(HIT_1),
-            "NDCG@1": "{:.4f}".format(NDCG_1),
-            "HIT@5": "{:.4f}".format(HIT_5),
-            "NDCG@5": "{:.4f}".format(NDCG_5),
-            "HIT@10": "{:.4f}".format(HIT_10),
-            "NDCG@10": "{:.4f}".format(NDCG_10),
-            "MRR": "{:.4f}".format(MRR),
+            "HIT@1": '{:.4f}'.format(HIT_1), "NDCG@1": '{:.4f}'.format(NDCG_1),
+            "HIT@5": '{:.4f}'.format(HIT_5), "NDCG@5": '{:.4f}'.format(NDCG_5),
+            "HIT@10": '{:.4f}'.format(HIT_10), "NDCG@10": '{:.4f}'.format(NDCG_10),
+            "MRR": '{:.4f}'.format(MRR),
         }
         print(post_fix)
-        with open(self.args.log_file, "a") as f:
-            f.write(str(post_fix) + "\n")
+        with open(self.args.log_file, 'a') as f:
+            f.write(str(post_fix) + '\n')
         return [HIT_1, NDCG_1, HIT_5, NDCG_5, HIT_10, NDCG_10, MRR], str(post_fix)
 
     def get_full_sort_score(self, epoch, answers, pred_list):
@@ -113,16 +108,13 @@ class Trainer:
             ndcg.append(ndcg_k(answers, pred_list, k))
         post_fix = {
             "Epoch": epoch,
-            "HIT@5": "{:.4f}".format(recall[0]),
-            "NDCG@5": "{:.4f}".format(ndcg[0]),
-            "HIT@10": "{:.4f}".format(recall[1]),
-            "NDCG@10": "{:.4f}".format(ndcg[1]),
-            "HIT@20": "{:.4f}".format(recall[3]),
-            "NDCG@20": "{:.4f}".format(ndcg[3]),
+            "HIT@5": '{:.4f}'.format(recall[0]), "NDCG@5": '{:.4f}'.format(ndcg[0]),
+            "HIT@10": '{:.4f}'.format(recall[1]), "NDCG@10": '{:.4f}'.format(ndcg[1]),
+            "HIT@20": '{:.4f}'.format(recall[3]), "NDCG@20": '{:.4f}'.format(ndcg[3])
         }
         print(post_fix)
-        with open(self.args.log_file, "a") as f:
-            f.write(str(post_fix) + "\n")
+        with open(self.args.log_file, 'a') as f:
+            f.write(str(post_fix) + '\n')
         return [recall[0], ndcg[0], recall[1], ndcg[1], recall[3], ndcg[3]], str(post_fix)
 
     def save(self, file_name):
@@ -139,13 +131,13 @@ class Trainer:
         # [batch*seq_len hidden_size]
         pos = pos_emb.view(-1, pos_emb.size(2))
         neg = neg_emb.view(-1, neg_emb.size(2))
-        seq_emb = seq_out.view(-1, self.args.hidden_size)  # [batch*seq_len hidden_size]
-        pos_logits = torch.sum(pos * seq_emb, -1)  # [batch*seq_len]
+        seq_emb = seq_out.view(-1, self.args.hidden_size) # [batch*seq_len hidden_size]
+        pos_logits = torch.sum(pos * seq_emb, -1) # [batch*seq_len]
         neg_logits = torch.sum(neg * seq_emb, -1)
-        istarget = (pos_ids > 0).view(pos_ids.size(0) * self.model.args.max_seq_length).float()  # [batch*seq_len]
+        istarget = (pos_ids > 0).view(pos_ids.size(0) * self.model.args.max_seq_length).float() # [batch*seq_len]
         loss = torch.sum(
-            -torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget
-            - torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget
+            - torch.log(torch.sigmoid(pos_logits) + 1e-24) * istarget -
+            torch.log(1 - torch.sigmoid(neg_logits) + 1e-24) * istarget
         ) / torch.sum(istarget)
 
         return loss
@@ -164,25 +156,36 @@ class Trainer:
         rating_pred = torch.matmul(seq_out, test_item_emb.transpose(0, 1))
         return rating_pred
 
-
 class CoSeRecTrainer(Trainer):
-    def __init__(self, model, train_dataloader, eval_dataloader, test_dataloader, args):
-        super(CoSeRecTrainer, self).__init__(model, train_dataloader, eval_dataloader, test_dataloader, args)
+
+    def __init__(self, model,
+                 train_dataloader,
+                 eval_dataloader,
+                 test_dataloader, 
+                 args):
+        super(CoSeRecTrainer, self).__init__(
+            model,
+            train_dataloader,
+            eval_dataloader,
+            test_dataloader, 
+            args
+        )
 
     def _one_pair_contrastive_learning(self, inputs):
-        """
+        '''
         contrastive learning given one pair sequences (batch)
         inputs: [batch1_augmented_data, batch2_augmentated_data]
-        """
+        '''
         cl_batch = torch.cat(inputs, dim=0)
         cl_batch = cl_batch.to(self.device)
         cl_sequence_output = self.model.transformer_encoder(cl_batch)
         # cf_sequence_output = cf_sequence_output[:, -1, :]
         cl_sequence_flatten = cl_sequence_output.view(cl_batch.shape[0], -1)
         # cf_output = self.projection(cf_sequence_flatten)
-        batch_size = cl_batch.shape[0] // 2
+        batch_size = cl_batch.shape[0]//2
         cl_output_slice = torch.split(cl_sequence_flatten, batch_size)
-        cl_loss = self.cf_criterion(cl_output_slice[0], cl_output_slice[1])
+        cl_loss = self.cf_criterion(cl_output_slice[0], 
+                                cl_output_slice[1])
         return cl_loss
 
     def iteration(self, epoch, dataloader, full_sort=True, train=True):
@@ -202,11 +205,11 @@ class CoSeRecTrainer(Trainer):
             rec_cf_data_iter = tqdm(enumerate(dataloader), total=len(dataloader))
 
             for i, (rec_batch, cl_batches) in rec_cf_data_iter:
-                """
+                '''
                 rec_batch shape: key_name x batch_size x feature_dim
                 cl_batches shape: 
                     list of n_views x batch_size x feature_dim tensors
-                """
+                '''
                 # 0. batch_data will be sent into the device(GPU or CPU)
                 rec_batch = tuple(t.to(self.device) for t in rec_batch)
                 _, input_ids, target_pos, target_neg, _ = rec_batch
@@ -235,32 +238,27 @@ class CoSeRecTrainer(Trainer):
                     cl_sum_avg_loss += cl_loss.item()
                 joint_avg_loss += joint_loss.item()
 
+
             post_fix = {
                 "epoch": epoch,
-                "rec_avg_loss": "{:.4f}".format(rec_avg_loss / len(rec_cf_data_iter)),
-                "joint_avg_loss": "{:.4f}".format(joint_avg_loss / len(rec_cf_data_iter)),
-                "cl_avg_loss": "{:.4f}".format(
-                    cl_sum_avg_loss / (len(rec_cf_data_iter) * self.total_augmentaion_pairs)
-                ),
+                "rec_avg_loss": '{:.4f}'.format(rec_avg_loss / len(rec_cf_data_iter)),
+                "joint_avg_loss": '{:.4f}'.format(joint_avg_loss / len(rec_cf_data_iter)),
+                "cl_avg_loss": '{:.4f}'.format(cl_sum_avg_loss / (len(rec_cf_data_iter)*self.total_augmentaion_pairs)),
             }
             for i, cl_individual_avg_loss in enumerate(cl_individual_avg_losses):
-                post_fix["cl_pair_" + str(i) + "_loss"] = "{:.4f}".format(
-                    cl_individual_avg_loss / len(rec_cf_data_iter)
-                )
+                post_fix['cl_pair_'+str(i)+'_loss'] = '{:.4f}'.format(cl_individual_avg_loss / len(rec_cf_data_iter))
 
             if (epoch + 1) % self.args.log_freq == 0:
                 print(str(post_fix))
 
-            with open(self.args.log_file, "a") as f:
-                f.write(str(post_fix) + "\n")
+            with open(self.args.log_file, 'a') as f:
+                f.write(str(post_fix) + '\n')
 
         else:
-            rec_data_iter = tqdm(
-                enumerate(dataloader),
-                desc="Recommendation EP_%s:%d" % (str_code, epoch),
-                total=len(dataloader),
-                bar_format="{l_bar}{r_bar}",
-            )
+            rec_data_iter = tqdm(enumerate(dataloader),
+                                  desc="Recommendation EP_%s:%d" % (str_code, epoch),
+                                  total=len(dataloader),
+                                  bar_format="{l_bar}{r_bar}")
             self.model.eval()
 
             pred_list = None

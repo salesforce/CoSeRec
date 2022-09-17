@@ -19,22 +19,21 @@ class NCELoss(nn.Module):
     """
     Eq. (12): L_{NCE}
     """
-
     def __init__(self, temperature, device):
         super(NCELoss, self).__init__()
         self.device = device
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         self.temperature = temperature
         self.cossim = nn.CosineSimilarity(dim=-1).to(self.device)
-
+        
     # #modified based on impl: https://github.com/ae-foster/pytorch-simclr/blob/dc9ac57a35aec5c7d7d5fe6dc070a975f493c1a5/critic.py#L5
     def forward(self, batch_sample_one, batch_sample_two):
         sim11 = torch.matmul(batch_sample_one, batch_sample_one.T) / self.temperature
         sim22 = torch.matmul(batch_sample_two, batch_sample_two.T) / self.temperature
         sim12 = torch.matmul(batch_sample_one, batch_sample_two.T) / self.temperature
         d = sim12.shape[-1]
-        sim11[..., range(d), range(d)] = float("-inf")
-        sim22[..., range(d), range(d)] = float("-inf")
+        sim11[..., range(d), range(d)] = float('-inf')
+        sim22[..., range(d), range(d)] = float('-inf')
         raw_scores1 = torch.cat([sim12, sim11], dim=-1)
         raw_scores2 = torch.cat([sim22, sim12.transpose(-1, -2)], dim=-1)
         logits = torch.cat([raw_scores1, raw_scores2], dim=-2)
@@ -53,7 +52,7 @@ class NCELoss(nn.Module):
     #     labels = torch.cat([torch.arange(features.shape[0])], dim=0)
     #     labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
     #     labels = labels.to(self.device)
-
+        
     #     features = F.normalize(features, dim=1)
 
     #     similarity_matrix = torch.matmul(features, features.T)
@@ -76,22 +75,19 @@ class NCELoss(nn.Module):
     #     logits = logits / self.temperature
     #     nce_loss = self.criterion(logits, labels)
     #     return nce_loss
-
-
 class NTXent(nn.Module):
     """
     Contrastive loss with distributed data parallel support
     code: https://github.com/AndrewAtanov/simclr-pytorch/blob/master/models/losses.py
     """
-
     LARGE_NUMBER = 1e9
 
-    def __init__(self, tau=1.0, gpu=None, multiplier=2, distributed=False):
+    def __init__(self, tau=1., gpu=None, multiplier=2, distributed=False):
         super().__init__()
         self.tau = tau
         self.multiplier = multiplier
         self.distributed = distributed
-        self.norm = 1.0
+        self.norm = 1.
 
     def forward(self, batch_sample_one, batch_sample_two):
         z = torch.cat([batch_sample_one, batch_sample_two], dim=0)
@@ -106,14 +102,13 @@ class NTXent(nn.Module):
 
         # choose all positive objects for an example, for i it would be (i + k * n/m), where k=0...(m-1)
         m = self.multiplier
-        labels = (np.repeat(np.arange(n), m) + np.tile(np.arange(m) * n // m, n)) % n
+        labels = (np.repeat(np.arange(n), m) + np.tile(np.arange(m) * n//m, n)) % n
         # remove labels pointet to itself, i.e. (i, i)
         labels = labels.reshape(n, m)[:, 1:].reshape(-1)
 
         # TODO: maybe different terms for each process should only be computed here...
-        loss = -logprob[np.repeat(np.arange(n), m - 1), labels].sum() / n / (m - 1) / self.norm
+        loss = -logprob[np.repeat(np.arange(n), m-1), labels].sum() / n / (m-1) / self.norm
         return loss
-
 
 def gelu(x):
     """Implementation of the gelu activation function.
@@ -124,7 +119,6 @@ def gelu(x):
         Also see https://arxiv.org/abs/1606.08415
     """
     return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
-
 
 def swish(x):
     return x * torch.sigmoid(x)
@@ -152,11 +146,10 @@ class LayerNorm(nn.Module):
 class Embeddings(nn.Module):
     """Construct the embeddings from item, position.
     """
-
     def __init__(self, args):
         super(Embeddings, self).__init__()
 
-        self.item_embeddings = nn.Embedding(args.item_size, args.hidden_size, padding_idx=0)  # 不要乱用padding_idx
+        self.item_embeddings = nn.Embedding(args.item_size, args.hidden_size, padding_idx=0) # 不要乱用padding_idx
         self.position_embeddings = nn.Embedding(args.max_seq_length, args.hidden_size)
 
         self.LayerNorm = LayerNorm(args.hidden_size, eps=1e-12)
@@ -176,15 +169,13 @@ class Embeddings(nn.Module):
         embeddings = self.dropout(embeddings)
         return embeddings
 
-
 class SelfAttention(nn.Module):
     def __init__(self, args):
         super(SelfAttention, self).__init__()
         if args.hidden_size % args.num_attention_heads != 0:
             raise ValueError(
                 "The hidden size (%d) is not a multiple of the number of attention "
-                "heads (%d)" % (args.hidden_size, args.num_attention_heads)
-            )
+                "heads (%d)" % (args.hidden_size, args.num_attention_heads))
         self.num_attention_heads = args.num_attention_heads
         self.attention_head_size = int(args.hidden_size / args.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
@@ -253,6 +244,7 @@ class Intermediate(nn.Module):
         self.LayerNorm = LayerNorm(args.hidden_size, eps=1e-12)
         self.dropout = nn.Dropout(args.hidden_dropout_prob)
 
+
     def forward(self, input_tensor):
 
         hidden_states = self.dense_1(input_tensor)
@@ -281,7 +273,8 @@ class Encoder(nn.Module):
     def __init__(self, args):
         super(Encoder, self).__init__()
         layer = Layer(args)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(args.num_hidden_layers)])
+        self.layer = nn.ModuleList([copy.deepcopy(layer)
+                                    for _ in range(args.num_hidden_layers)])
 
     def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True):
         all_encoder_layers = []
